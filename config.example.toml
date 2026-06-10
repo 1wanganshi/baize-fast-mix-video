@@ -1,14 +1,11 @@
+project_name = "白泽快速混剪视频"
+project_description = "白泽快速混剪视频桌面工具"
+
 [app]
 video_source = "pexels" # "pexels" or "pixabay"
 
 # 是否隐藏配置面板
 hide_config = false
-
-# Azure TTS V1(edge_tts) 单次流式请求超时时间，单位秒。
-# 网络异常、服务端限流或 voice 与文本语言不匹配时，edge_tts 可能长期卡住。
-# 默认 30 秒可避免 WebUI 任务无反馈；慢网络或代理环境可适当调大。
-# 设置为 0 表示禁用超时。
-edge_tts_timeout = 30
 
 # 是否校验外部 API 和素材下载的 TLS 证书。
 # 默认必须开启，避免 Pexels/Pixabay API key 和下载素材被中间人攻击篡改。
@@ -77,7 +74,7 @@ openai_model_name = "gpt-4o-mini"
 
 ########## AIHubMix API Key
 # AIHubMix is OpenAI-compatible and can use one API key to access multiple models.
-# Visit https://aihubmix.com/?aff=CEve to register and get your API key.
+# Visit https://aihubmix.com/ to register and get your API key.
 aihubmix_api_key = ""
 aihubmix_base_url = "https://aihubmix.com/v1"
 aihubmix_model_name = "gpt-5.4-mini"
@@ -154,11 +151,6 @@ minimax_model_name = "MiniMax-M3"
 mimo_api_key = ""
 mimo_base_url = "https://api.xiaomimimo.com/v1"
 mimo_model_name = "mimo-v2.5-pro"
-# Xiaomi MiMo TTS uses the same API key and base_url as MiMo LLM.
-mimo_tts_model_name = "mimo-v2.5-tts"
-# Optional natural language style prompt for MiMo TTS.
-mimo_tts_style_prompt = "请用自然、清晰、适合短视频旁白的语气朗读。"
-
 ########## DeepSeek API Key
 # Visit https://platform.deepseek.com/api_keys to get your API key
 deepseek_api_key = ""
@@ -229,6 +221,16 @@ subtitle_provider = "edge"
 # If the selected encoder is not supported by the current FFmpeg or driver, the app falls back to libx264.
 # Available values: "libx264", "h264_nvenc", "h264_amf", "h264_qsv", "h264_mf", "h264_videotoolbox"
 # video_codec = "libx264"
+
+# CPU 编码速度预设。默认 veryfast 会明显快于默认 preset，体积略大但更适合桌面端快速成片。
+video_encode_preset = "veryfast"
+
+# 快速素材模式：Pexels 优先选择 720p 级别素材，减少下载和重编码耗时。
+fast_video_materials = true
+material_preferred_short_side = 720
+material_search_per_page = 12
+
+# OpenBMB VoxCPM 声音克隆由桌面端内置 Python 包直接加载，不依赖本地网址服务。
 #########################################################################################
 
 # 当视频生成成功后，API服务提供的视频下载接入点，默认为当前服务的地址和监听端口
@@ -299,17 +301,6 @@ compute_type = "int8"
 # http = "http://10.10.1.10:3128"
 # https = "http://10.10.1.10:1080"
 
-[azure]
-# Azure Speech API Key
-# Get your API key at https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices
-speech_key = ""
-speech_region = ""
-
-[siliconflow]
-# SiliconFlow API Key
-# Get your API key at https://siliconflow.cn
-api_key = ""
-
 [ui]
 # UI related settings
 # 是否隐藏日志信息
@@ -321,7 +312,7 @@ hide_log = false
 # subtitle_position = "custom"
 # 自定义位置，表示离顶部的百分比 (0-100)，仅当 subtitle_position = "custom" 时生效
 # Custom position as percentage from top (0-100), only effective when subtitle_position = "custom"
-# custom_position = 70.0
+custom_position = 75.0
 
 ########## Upload-Post (Cross-post to TikTok/Instagram)
 # Upload-Post allows you to automatically cross-post generated videos to TikTok and Instagram.

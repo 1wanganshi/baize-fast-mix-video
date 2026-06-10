@@ -1,0 +1,52 @@
+{
+  "name": "baize-fast-mix-video-desktop",
+  "version": "1.2.9",
+  "description": "????????????",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.baize.fastmixvideo.desktop",
+    "productName": "????????",
+    "directories": {
+      "output": "../../dist/electron"
+    },
+    "files": [
+      "main.js",
+      "!node_modules/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../..",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!.git/**",
+          "!__pycache__/**",
+          "!node_modules/**",
+          "!packaging/**",
+          "!dist/**",
+          "!storage/**",
+          "!logs/**",
+          "!models/**",
+          "!config.toml",
+          "!streamlit-*.log",
+          "!streamlit-*.out.log",
+          "!streamlit-*.err.log"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "resources/icon.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

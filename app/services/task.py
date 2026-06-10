@@ -100,13 +100,16 @@ def generate_audio(task_id, params, video_script):
             voice_name=voice.parse_voice_name(params.voice_name),
             voice_rate=params.voice_rate,
             voice_file=audio_file,
+            voice_volume=params.voice_volume,
+            reference_audio_file=getattr(params, "voice_reference_audio_file", None),
         )
         if sub_maker is None:
             sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
             logger.error(
                 """failed to generate audio:
-1. check if the language of the voice matches the language of the video script.
-2. check if the network is available. If you are in China, it is recommended to use a VPN and enable the global traffic mode.
+1. check whether VoxCPM is installed in the desktop Python environment.
+2. check whether the VoxCPM model has been downloaded successfully.
+3. check whether the reference audio file is readable.
             """.strip()
             )
             return None, None, None

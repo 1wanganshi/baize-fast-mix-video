@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import webbrowser
 from uuid import UUID, uuid4
@@ -24,21 +24,31 @@ from app.models.schema import (
     VideoTransitionMode,
 )
 from app.services import llm, voice
-from app.services import task as tm
 from app.utils import utils
 
+
+def get_config_snapshot():
+    return utils.to_json(
+        {
+            "app": config.app,
+            "ui": config.ui,
+        }
+    )
+
+
+def save_config_if_changed(force: bool = False):
+    snapshot = get_config_snapshot()
+    if force or st.session_state.get("_config_snapshot") != snapshot:
+        config.save_config()
+        st.session_state["_config_snapshot"] = get_config_snapshot()
+
+
 st.set_page_config(
-    page_title="MoneyPrinterTurbo",
-    page_icon="🤖",
+    page_title="白泽快速混剪视频",
+    page_icon="🎬",
     layout="wide",
     initial_sidebar_state="auto",
-    menu_items={
-        "Report a bug": "https://github.com/harry0703/MoneyPrinterTurbo/issues",
-        "About": "# MoneyPrinterTurbo\nSimply provide a topic or keyword for a video, and it will "
-        "automatically generate the video copy, video materials, video subtitles, "
-        "and video background music before synthesizing a high-definition short "
-        "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
-    },
+    menu_items=None,
 )
 
 
@@ -51,7 +61,7 @@ h1 {
 """
 st.markdown(streamlit_style, unsafe_allow_html=True)
 
-# 定义资源目录
+# 瀹氫箟璧勬簮鐩綍
 font_dir = os.path.join(root_dir, "resource", "fonts")
 song_dir = os.path.join(root_dir, "resource", "songs")
 i18n_dir = os.path.join(root_dir, "webui", "i18n")
@@ -74,17 +84,21 @@ if "use_custom_system_prompt" not in st.session_state:
 if "ui_language" not in st.session_state:
     st.session_state["ui_language"] = config.ui.get("language", system_locale)
 if "local_video_materials" not in st.session_state:
-    # 记住用户最近一次已经落盘的本地素材，避免仅修改文案后二次生成时丢失素材列表。
+    # 记住用户最近一次已经落盘的本地素材，避免二次生成时丢失素材列表。
     st.session_state["local_video_materials"] = []
+if "generation_in_progress" not in st.session_state:
+    st.session_state["generation_in_progress"] = False
+if "_config_snapshot" not in st.session_state:
+    st.session_state["_config_snapshot"] = get_config_snapshot()
 
-# 加载语言文件
+# 鍔犺浇璇█鏂囦欢
 locales = utils.load_locales(i18n_dir)
 
-# 创建一个顶部栏，包含标题和语言选择
+# 鍒涘缓涓€涓《閮ㄦ爮锛屽寘鍚爣棰樺拰璇█閫夋嫨
 title_col, lang_col = st.columns([3, 1])
 
 with title_col:
-    st.title(f"MoneyPrinterTurbo v{config.project_version}")
+    st.title(f"鐧芥辰蹇€熸贩鍓棰?v{config.project_version}")
 
 with lang_col:
     display_languages = []
@@ -95,7 +109,7 @@ with lang_col:
             selected_index = i
 
     selected_language = st.selectbox(
-        "Language / 语言",
+        "Language / 璇█",
         options=display_languages,
         index=selected_index,
         key="top_language_selector",
@@ -120,6 +134,7 @@ support_locales = [
 ]
 
 
+@st.cache_data(show_spinner=False)
 def get_all_fonts():
     fonts = []
     for root, dirs, files in os.walk(font_dir):
@@ -130,6 +145,7 @@ def get_all_fonts():
     return fonts
 
 
+@st.cache_data(show_spinner=False)
 def get_all_songs():
     songs = []
     for root, dirs, files in os.walk(song_dir):
@@ -141,15 +157,15 @@ def get_all_songs():
 
 def open_task_folder(task_id):
     try:
-        # task_id 应始终是服务端生成的 UUID。这里先做格式校验，避免异常值
-        # 通过路径拼接访问任务目录之外的位置，也避免后续打开目录时触发
-        # 平台 shell 对特殊字符的解释。
+        # task_id 搴斿缁堟槸鏈嶅姟绔敓鎴愮殑 UUID銆傝繖閲屽厛鍋氭牸寮忔牎楠岋紝閬垮厤寮傚父鍊?
+        # 閫氳繃璺緞鎷兼帴璁块棶浠诲姟鐩綍涔嬪鐨勪綅缃紝涔熼伩鍏嶅悗缁墦寮€鐩綍鏃惰Е鍙?
+        # 骞冲彴 shell 瀵圭壒娈婂瓧绗︾殑瑙ｉ噴銆?
         normalized_task_id = str(UUID(str(task_id)))
         tasks_root = os.path.abspath(os.path.join(root_dir, "storage", "tasks"))
         path = os.path.abspath(os.path.join(tasks_root, normalized_task_id))
 
-        # 即使 UUID 校验通过，也再次确认最终路径仍在任务根目录内，避免
-        # 未来调用方调整 task_id 来源时引入路径穿越风险。
+        # 鍗充娇 UUID 鏍￠獙閫氳繃锛屼篃鍐嶆纭鏈€缁堣矾寰勪粛鍦ㄤ换鍔℃牴鐩綍鍐咃紝閬垮厤
+        # 鏈潵璋冪敤鏂硅皟鏁?task_id 鏉ユ簮鏃跺紩鍏ヨ矾寰勭┛瓒婇闄┿€?
         if not path.startswith(tasks_root + os.sep):
             logger.warning(f"invalid task folder path: {path}")
             return
@@ -182,14 +198,14 @@ def init_log():
     _lvl = "DEBUG"
 
     def format_record(record):
-        # 获取日志记录中的文件全路径
+        # 鑾峰彇鏃ュ織璁板綍涓殑鏂囦欢鍏ㄨ矾寰?
         file_path = record["file"].path
-        # 将绝对路径转换为相对于项目根目录的路径
+        # 灏嗙粷瀵硅矾寰勮浆鎹负鐩稿浜庨」鐩牴鐩綍鐨勮矾寰?
         relative_path = os.path.relpath(file_path, root_dir)
-        # 更新记录中的文件路径
+        # 鏇存柊璁板綍涓殑鏂囦欢璺緞
         record["file"].path = f"./{relative_path}"
-        # 返回修改后的格式字符串
-        # 您可以根据需要调整这里的格式
+        # 杩斿洖淇敼鍚庣殑鏍煎紡瀛楃涓?
+        # 鎮ㄥ彲浠ユ牴鎹渶瑕佽皟鏁磋繖閲岀殑鏍煎紡
         record["message"] = record["message"].replace(root_dir, ".")
 
         _format = (
@@ -248,7 +264,7 @@ def get_groq_model_ids(api_key: str, base_url: str) -> list[str]:
         logger.warning(f"failed to fetch groq models: {e}")
         return []
 
-# 创建基础设置折叠框
+# 鍒涘缓鍩虹璁剧疆鎶樺彔妗?
 if not config.app.get("hide_config", False):
     with st.expander(tr("Basic Settings"), expanded=False):
         config_panels = st.columns(3)
@@ -256,31 +272,31 @@ if not config.app.get("hide_config", False):
         middle_config_panel = config_panels[1]
         right_config_panel = config_panels[2]
 
-        # 左侧面板 - 日志设置
+        # 宸︿晶闈㈡澘 - 鏃ュ織璁剧疆
         with left_config_panel:
-            # 是否隐藏配置面板
+            # 鏄惁闅愯棌閰嶇疆闈㈡澘
             hide_config = st.checkbox(
                 tr("Hide Basic Settings"), value=config.app.get("hide_config", False)
             )
             config.app["hide_config"] = hide_config
 
-            # 是否禁用日志显示
+            # 鏄惁绂佺敤鏃ュ織鏄剧ず
             hide_log = st.checkbox(
                 tr("Hide Log"), value=config.ui.get("hide_log", False)
             )
             config.ui["hide_log"] = hide_log
 
-        # 中间面板 - LLM 设置
+        # 涓棿闈㈡澘 - LLM 璁剧疆
 
         with middle_config_panel:
             st.write(tr("LLM Settings"))
-            # 下拉框需要展示“AIHubMix（推荐）”这类面向用户的文案，
-            # 但配置文件和后端逻辑必须继续使用稳定的小写 provider id。
-            # 因此这里显式维护 display label 和 provider id 的映射，避免
-            # UI 文案变化污染 `config.app["llm_provider"]`。
+            # 涓嬫媺妗嗛渶瑕佸睍绀衡€淎IHubMix锛堟帹鑽愶級鈥濊繖绫婚潰鍚戠敤鎴风殑鏂囨锛?
+            # 浣嗛厤缃枃浠跺拰鍚庣閫昏緫蹇呴』缁х画浣跨敤绋冲畾鐨勫皬鍐?provider id銆?
+            # 鍥犳杩欓噷鏄惧紡缁存姢 display label 鍜?provider id 鐨勬槧灏勶紝閬垮厤
+            # UI 鏂囨鍙樺寲姹℃煋 `config.app["llm_provider"]`銆?
             aihubmix_label = f"AIHubMix ({tr('Recommended')})"
             if config.ui.get("language") == "zh":
-                aihubmix_label = "AIHubMix（推荐）"
+                aihubmix_label = "AIHubMix锛堟帹鑽愶級"
             llm_provider_options = [
                 ("OpenAI", "openai"),
                 (aihubmix_label, "aihubmix"),
@@ -340,14 +356,14 @@ if not config.app.get("hide_config", False):
                 with llm_helper:
                     docker_hint = ""
                     if config.is_running_in_container():
-                        docker_hint = "\n                            > 检测到容器环境，未配置 Base Url 时会默认使用 `http://host.docker.internal:11434/v1`\n"
+                        docker_hint = "\n                            > 妫€娴嬪埌瀹瑰櫒鐜锛屾湭閰嶇疆 Base Url 鏃朵細榛樿浣跨敤 `http://host.docker.internal:11434/v1`\n"
                     tips = f"""
-                            ##### Ollama配置说明
-                            - **API Key**: 随便填写，比如 123
-                            - **Base Url**: 一般为 http://localhost:11434/v1
-                                - 如果 `MoneyPrinterTurbo` 和 `Ollama` **不在同一台机器上**，需要填写 `Ollama` 机器的IP地址
-                                - 如果 `MoneyPrinterTurbo` 是 `Docker` 部署，建议填写 `http://host.docker.internal:11434/v1`{docker_hint}
-                            - **Model Name**: 使用 `ollama list` 查看，比如 `qwen:7b`
+                            ##### Ollama閰嶇疆璇存槑
+                            - **API Key**: 闅忎究濉啓锛屾瘮濡?123
+                            - **Base Url**: 涓€鑸负 http://localhost:11434/v1
+                                - 濡傛灉 `鐧芥辰蹇€熸贩鍓棰慲 鍜?`Ollama` **涓嶅湪鍚屼竴鍙版満鍣ㄤ笂**锛岄渶瑕佸～鍐?`Ollama` 鏈哄櫒鐨処P鍦板潃
+                                - 濡傛灉 `鐧芥辰蹇€熸贩鍓棰慲 鏄?`Docker` 閮ㄧ讲锛屽缓璁～鍐?`http://host.docker.internal:11434/v1`{docker_hint}
+                            - **Model Name**: 浣跨敤 `ollama list` 鏌ョ湅锛屾瘮濡?`qwen:7b`
                             """
 
             if llm_provider == "openai":
@@ -355,11 +371,11 @@ if not config.app.get("hide_config", False):
                     llm_model_name = "gpt-3.5-turbo"
                 with llm_helper:
                     tips = """
-                            ##### OpenAI 配置说明
-                            > 需要VPN开启全局流量模式
-                            - **API Key**: [点击到官网申请](https://platform.openai.com/api-keys)
-                            - **Base Url**: 官方 OpenAI 可留空；如果使用 OpenAI 兼容供应商（例如 OpenRouter），请填写对应的兼容接口地址
-                            - **Model Name**: 填写**有权限**的模型；如果使用兼容供应商，请填写该平台支持的模型 ID
+                            ##### OpenAI 閰嶇疆璇存槑
+                            > 闇€瑕乂PN寮€鍚叏灞€娴侀噺妯″紡
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://platform.openai.com/api-keys)
+                            - **Base Url**: 瀹樻柟 OpenAI 鍙暀绌猴紱濡傛灉浣跨敤 OpenAI 鍏煎渚涘簲鍟嗭紙渚嬪 OpenRouter锛夛紝璇峰～鍐欏搴旂殑鍏煎鎺ュ彛鍦板潃
+                            - **Model Name**: 濉啓**鏈夋潈闄?*鐨勬ā鍨嬶紱濡傛灉浣跨敤鍏煎渚涘簲鍟嗭紝璇峰～鍐欒骞冲彴鏀寔鐨勬ā鍨?ID
                             """
 
             if llm_provider == "aihubmix":
@@ -369,16 +385,16 @@ if not config.app.get("hide_config", False):
                     llm_base_url = "https://aihubmix.com/v1"
                 with llm_helper:
                     tips = """
-                            ##### AIHubMix 配置说明
-                            - **注册链接**: [点击注册 AIHubMix](https://aihubmix.com/?aff=CEve)
-                            - **Base Url**: 预填 https://aihubmix.com/v1
-                            - **推荐模型**: 默认 gpt-5.4-mini，也可以填写 AIHubMix 支持的免费模型或其它模型 ID
+                            ##### AIHubMix 閰嶇疆璇存槑
+                            - **娉ㄥ唽閾炬帴**: [鐐瑰嚮娉ㄥ唽 AIHubMix](https://aihubmix.com/)
+                            - **Base Url**: 棰勫～ https://aihubmix.com/v1
+                            - **鎺ㄨ崘妯″瀷**: 榛樿 gpt-5.4-mini锛屼篃鍙互濉啓 AIHubMix 鏀寔鐨勫厤璐规ā鍨嬫垨鍏跺畠妯″瀷 ID
 
-                            推荐理由：
-                            - **模型全**: Claude、GPT、Gemini、Grok、DeepSeek、通义等 700+ 模型一站覆盖
-                            - **稳定**: 无限并发，永远在线，集群部署于谷歌云，长期为众多知名应用提供高并发服务
-                            - **能力完整**: 文本、图片生成、视频生成、TTS、STT、向量嵌入、Rerank，多模态场景全搞定
-                            - **计费透明**: 按量付费，无会员无包月，免费模型可使用
+                            鎺ㄨ崘鐞嗙敱锛?
+                            - **妯″瀷鍏?*: Claude銆丟PT銆丟emini銆丟rok銆丏eepSeek銆侀€氫箟绛?700+ 妯″瀷涓€绔欒鐩?
+                            - **绋冲畾**: 鏃犻檺骞跺彂锛屾案杩滃湪绾匡紝闆嗙兢閮ㄧ讲浜庤胺姝屼簯锛岄暱鏈熶负浼楀鐭ュ悕搴旂敤鎻愪緵楂樺苟鍙戞湇鍔?
+                            - **鑳藉姏瀹屾暣**: 鏂囨湰銆佸浘鐗囩敓鎴愩€佽棰戠敓鎴愩€乀TS銆丼TT銆佸悜閲忓祵鍏ャ€丷erank锛屽妯℃€佸満鏅叏鎼炲畾
+                            - **璁¤垂閫忔槑**: 鎸夐噺浠樿垂锛屾棤浼氬憳鏃犲寘鏈堬紝鍏嶈垂妯″瀷鍙娇鐢?
                             """
 
             if llm_provider == "moonshot":
@@ -386,22 +402,22 @@ if not config.app.get("hide_config", False):
                     llm_model_name = "moonshot-v1-8k"
                 with llm_helper:
                     tips = """
-                            ##### Moonshot 配置说明
-                            - **API Key**: [点击到官网申请](https://platform.moonshot.cn/console/api-keys)
-                            - **Base Url**: 固定为 https://api.moonshot.cn/v1
-                            - **Model Name**: 比如 moonshot-v1-8k，[点击查看模型列表](https://platform.moonshot.cn/docs/intro#%E6%A8%A1%E5%9E%8B%E5%88%97%E8%A1%A8)
+                            ##### Moonshot 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://platform.moonshot.cn/console/api-keys)
+                            - **Base Url**: 鍥哄畾涓?https://api.moonshot.cn/v1
+                            - **Model Name**: 姣斿 moonshot-v1-8k锛孾鐐瑰嚮鏌ョ湅妯″瀷鍒楄〃](https://platform.moonshot.cn/docs/intro#%E6%A8%A1%E5%9E%8B%E5%88%97%E8%A1%A8)
                             """
             if llm_provider == "oneapi":
                 if not llm_model_name:
                     llm_model_name = (
-                        "claude-3-5-sonnet-20240620"  # 默认模型，可以根据需要调整
+                        "claude-3-5-sonnet-20240620"  # 榛樿妯″瀷锛屽彲浠ユ牴鎹渶瑕佽皟鏁?
                     )
                 with llm_helper:
                     tips = """
-                        ##### OneAPI 配置说明
-                        - **API Key**: 填写您的 OneAPI 密钥
-                        - **Base Url**: 填写 OneAPI 的基础 URL
-                        - **Model Name**: 填写您要使用的模型名称，例如 claude-3-5-sonnet-20240620
+                        ##### OneAPI 閰嶇疆璇存槑
+                        - **API Key**: 濉啓鎮ㄧ殑 OneAPI 瀵嗛挜
+                        - **Base Url**: 濉啓 OneAPI 鐨勫熀纭€ URL
+                        - **Model Name**: 濉啓鎮ㄨ浣跨敤鐨勬ā鍨嬪悕绉帮紝渚嬪 claude-3-5-sonnet-20240620
                         """
 
             if llm_provider == "qwen":
@@ -409,10 +425,10 @@ if not config.app.get("hide_config", False):
                     llm_model_name = "qwen-max"
                 with llm_helper:
                     tips = """
-                            ##### 通义千问Qwen 配置说明
-                            - **API Key**: [点击到官网申请](https://dashscope.console.aliyun.com/apiKey)
-                            - **Base Url**: 留空
-                            - **Model Name**: 比如 qwen-max，[点击查看模型列表](https://help.aliyun.com/zh/dashscope/developer-reference/model-introduction#3ef6d0bcf91wy)
+                            ##### 閫氫箟鍗冮棶Qwen 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://dashscope.console.aliyun.com/apiKey)
+                            - **Base Url**: 鐣欑┖
+                            - **Model Name**: 姣斿 qwen-max锛孾鐐瑰嚮鏌ョ湅妯″瀷鍒楄〃](https://help.aliyun.com/zh/dashscope/developer-reference/model-introduction#3ef6d0bcf91wy)
                             """
 
             if llm_provider == "g4f":
@@ -420,20 +436,20 @@ if not config.app.get("hide_config", False):
                     llm_model_name = "gpt-3.5-turbo"
                 with llm_helper:
                     tips = """
-                            ##### gpt4free 配置说明
-                            > [GitHub开源项目](https://github.com/xtekky/gpt4free)，可以免费使用GPT模型，但是**稳定性较差**
-                            - **API Key**: 随便填写，比如 123
-                            - **Base Url**: 留空
-                            - **Model Name**: 比如 gpt-3.5-turbo，[点击查看模型列表](https://github.com/xtekky/gpt4free/blob/main/g4f/models.py#L308)
+                            ##### gpt4free 閰嶇疆璇存槑
+                            > [GitHub寮€婧愰」鐩甝(https://github.com/xtekky/gpt4free)锛屽彲浠ュ厤璐逛娇鐢℅PT妯″瀷锛屼絾鏄?*绋冲畾鎬ц緝宸?*
+                            - **API Key**: 闅忎究濉啓锛屾瘮濡?123
+                            - **Base Url**: 鐣欑┖
+                            - **Model Name**: 姣斿 gpt-3.5-turbo锛孾鐐瑰嚮鏌ョ湅妯″瀷鍒楄〃](https://github.com/xtekky/gpt4free/blob/main/g4f/models.py#L308)
                             """
             if llm_provider == "azure":
                 with llm_helper:
                     tips = """
-                            ##### Azure 配置说明
-                            > [点击查看如何部署模型](https://learn.microsoft.com/zh-cn/azure/ai-services/openai/how-to/create-resource)
-                            - **API Key**: [点击到Azure后台创建](https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI)
-                            - **Base Url**: 留空
-                            - **Model Name**: 填写你实际的部署名
+                            ##### Azure 閰嶇疆璇存槑
+                            > [鐐瑰嚮鏌ョ湅濡備綍閮ㄧ讲妯″瀷](https://learn.microsoft.com/zh-cn/azure/ai-services/openai/how-to/create-resource)
+                            - **API Key**: [鐐瑰嚮鍒癆zure鍚庡彴鍒涘缓](https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI)
+                            - **Base Url**: 鐣欑┖
+                            - **Model Name**: 濉啓浣犲疄闄呯殑閮ㄧ讲鍚?
                             """
 
             if llm_provider == "gemini":
@@ -442,11 +458,11 @@ if not config.app.get("hide_config", False):
 
                 with llm_helper:
                     tips = """
-                            ##### Gemini 配置说明
-                            > 需要VPN开启全局流量模式
-                            - **API Key**: [点击到官网申请](https://ai.google.dev/)
-                            - **Base Url**: 留空
-                            - **Model Name**: 比如 gemini-1.0-pro
+                            ##### Gemini 閰嶇疆璇存槑
+                            > 闇€瑕乂PN寮€鍚叏灞€娴侀噺妯″紡
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://ai.google.dev/)
+                            - **Base Url**: 鐣欑┖
+                            - **Model Name**: 姣斿 gemini-1.0-pro
                             """
 
             if llm_provider == "grok":
@@ -457,10 +473,10 @@ if not config.app.get("hide_config", False):
 
                 with llm_helper:
                     tips = """
-                            ##### Grok 配置说明
-                            - **API Key**: 填写您的 GrokAPI 密钥
-                            - **Base Url**: 填写 GrokAPI 的基础 URL
-                            - **Model Name**: 比如 grok-4.3
+                            ##### Grok 閰嶇疆璇存槑
+                            - **API Key**: 濉啓鎮ㄧ殑 GrokAPI 瀵嗛挜
+                            - **Base Url**: 濉啓 GrokAPI 鐨勫熀纭€ URL
+                            - **Model Name**: 姣斿 grok-4.3
                             """
 
             if llm_provider == "groq":
@@ -471,10 +487,10 @@ if not config.app.get("hide_config", False):
 
                 with llm_helper:
                     tips = """
-                            ##### Groq 配置说明
-                            - **API Key**: [点击到官网申请](https://console.groq.com/keys)
-                            - **Base Url**: 固定为 https://api.groq.com/openai/v1
-                            - **Model Name**: 比如 llama-3.3-70b-versatile
+                            ##### Groq 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://console.groq.com/keys)
+                            - **Base Url**: 鍥哄畾涓?https://api.groq.com/openai/v1
+                            - **Model Name**: 姣斿 llama-3.3-70b-versatile
                             """
 
             if llm_provider == "deepseek":
@@ -484,10 +500,10 @@ if not config.app.get("hide_config", False):
                     llm_base_url = "https://api.deepseek.com"
                 with llm_helper:
                     tips = """
-                            ##### DeepSeek 配置说明
-                            - **API Key**: [点击到官网申请](https://platform.deepseek.com/api_keys)
-                            - **Base Url**: 固定为 https://api.deepseek.com
-                            - **Model Name**: 固定为 deepseek-chat
+                            ##### DeepSeek 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://platform.deepseek.com/api_keys)
+                            - **Base Url**: 鍥哄畾涓?https://api.deepseek.com
+                            - **Model Name**: 鍥哄畾涓?deepseek-chat
                             """
 
             if llm_provider == "mimo":
@@ -497,10 +513,10 @@ if not config.app.get("hide_config", False):
                     llm_base_url = "https://api.xiaomimimo.com/v1"
                 with llm_helper:
                     tips = """
-                            ##### Xiaomi MiMo 配置说明
-                            - **API Key**: [点击到官网申请](https://platform.xiaomimimo.com/docs/zh-CN/quick-start/first-api-call)
-                            - **Base Url**: 固定为 https://api.xiaomimimo.com/v1
-                            - **Model Name**: 默认 mimo-v2.5-pro，也可以按官方文档填写其它可用模型
+                            ##### Xiaomi MiMo 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://platform.xiaomimimo.com/docs/zh-CN/quick-start/first-api-call)
+                            - **Base Url**: 鍥哄畾涓?https://api.xiaomimimo.com/v1
+                            - **Model Name**: 榛樿 mimo-v2.5-pro锛屼篃鍙互鎸夊畼鏂规枃妗ｅ～鍐欏叾瀹冨彲鐢ㄦā鍨?
                             """
 
             if llm_provider == "modelscope":
@@ -510,19 +526,19 @@ if not config.app.get("hide_config", False):
                     llm_base_url = "https://api-inference.modelscope.cn/v1/"
                 with llm_helper:
                     tips = """
-                            ##### ModelScope 配置说明
-                            - **API Key**: [点击到官网申请](https://modelscope.cn/docs/model-service/API-Inference/intro)
-                            - **Base Url**: 固定为 https://api-inference.modelscope.cn/v1/
-                            - **Model Name**: 比如 Qwen/Qwen3-32B，[点击查看模型列表](https://modelscope.cn/models?filter=inference_type&page=1)
+                            ##### ModelScope 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://modelscope.cn/docs/model-service/API-Inference/intro)
+                            - **Base Url**: 鍥哄畾涓?https://api-inference.modelscope.cn/v1/
+                            - **Model Name**: 姣斿 Qwen/Qwen3-32B锛孾鐐瑰嚮鏌ョ湅妯″瀷鍒楄〃](https://modelscope.cn/models?filter=inference_type&page=1)
                             """
 
             if llm_provider == "ernie":
                 with llm_helper:
                     tips = """
-                            ##### 百度文心一言 配置说明
-                            - **API Key**: [点击到官网申请](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
-                            - **Secret Key**: [点击到官网申请](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
-                            - **Base Url**: 填写 **请求地址** [点击查看文档](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/jlil56u11#%E8%AF%B7%E6%B1%82%E8%AF%B4%E6%98%8E)
+                            ##### 鐧惧害鏂囧績涓€瑷€ 閰嶇疆璇存槑
+                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
+                            - **Secret Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
+                            - **Base Url**: 濉啓 **璇锋眰鍦板潃** [鐐瑰嚮鏌ョ湅鏂囨。](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/jlil56u11#%E8%AF%B7%E6%B1%82%E8%AF%B4%E6%98%8E)
                             """
 
             if llm_provider == "pollinations":
@@ -544,16 +560,16 @@ if not config.app.get("hide_config", False):
                             ##### LiteLLM Configuration
                             > [LiteLLM](https://github.com/BerriAI/litellm) routes to 100+ LLM providers via a unified interface.
                             > Set your provider's API key as an env var: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `AWS_ACCESS_KEY_ID`, etc.
-                            - **Model Name**: LiteLLM format — `openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514`, `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0`, `gemini/gemini-2.5-flash`. See [full provider list](https://docs.litellm.ai/docs/providers)
+                            - **Model Name**: LiteLLM format 鈥?`openai/gpt-4o`, `anthropic/claude-sonnet-4-20250514`, `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0`, `gemini/gemini-2.5-flash`. See [full provider list](https://docs.litellm.ai/docs/providers)
                             """
 
             if tips and config.ui["language"] == "zh":
-                # AIHubMix 自身就是 OpenAI-compatible 聚合平台；用户主动选择
-                # 该 provider 时，再显示 DeepSeek/Moonshot 的通用推荐会造成
-                # 信息干扰，也不利于保持合作入口的轻量、清晰。
+                # AIHubMix 鑷韩灏辨槸 OpenAI-compatible 鑱氬悎骞冲彴锛涚敤鎴蜂富鍔ㄩ€夋嫨
+                # 璇?provider 鏃讹紝鍐嶆樉绀?DeepSeek/Moonshot 鐨勯€氱敤鎺ㄨ崘浼氶€犳垚
+                # 淇℃伅骞叉壈锛屼篃涓嶅埄浜庝繚鎸佸悎浣滃叆鍙ｇ殑杞婚噺銆佹竻鏅般€?
                 if llm_provider != "aihubmix":
                     st.warning(
-                        "中国用户建议使用 **DeepSeek** 或 **Moonshot** 作为大模型提供商\n- 国内可直接访问，不需要VPN \n- 注册就送额度，基本够用"
+                        "涓浗鐢ㄦ埛寤鸿浣跨敤 **DeepSeek** 鎴?**Moonshot** 浣滀负澶фā鍨嬫彁渚涘晢\n- 鍥藉唴鍙洿鎺ヨ闂紝涓嶉渶瑕乂PN \n- 娉ㄥ唽灏遍€侀搴︼紝鍩烘湰澶熺敤"
                     )
                 st.info(tips)
 
@@ -626,7 +642,7 @@ if not config.app.get("hide_config", False):
                 if st_llm_account_id:
                     config.app[f"{llm_provider}_account_id"] = st_llm_account_id
 
-        # 右侧面板 - API 密钥设置
+        # 鍙充晶闈㈡澘 - API 瀵嗛挜璁剧疆
         with right_config_panel:
 
             def get_keys_from_config(cfg_key):
@@ -664,6 +680,8 @@ right_panel = panel[2]
 params = VideoParams(video_subject="")
 uploaded_files = []
 uploaded_audio_file = None
+uploaded_voice_reference_file = None
+custom_audio_file_types = ["mp3", "wav", "m4a", "aac", "flac", "ogg"]
 
 with left_panel:
     with st.container(border=True):
@@ -793,7 +811,7 @@ with middle_panel:
         config.app["video_source"] = params.video_source
 
         if params.video_source == "local":
-            # Streamlit 的文件类型校验对扩展名大小写敏感，这里同时放行大小写两种形式。
+            # Streamlit 鐨勬枃浠剁被鍨嬫牎楠屽鎵╁睍鍚嶅ぇ灏忓啓鏁忔劅锛岃繖閲屽悓鏃舵斁琛屽ぇ灏忓啓涓ょ褰㈠紡銆?
             local_file_types = ["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"]
             uploaded_files = st.file_uploader(
                 tr("Upload Local Files"),
@@ -815,7 +833,7 @@ with middle_panel:
             video_concat_modes[selected_index][1]
         )
 
-        # 视频转场模式
+        # 瑙嗛杞満妯″紡
         video_transition_modes = [
             (tr("None"), VideoTransitionMode.none.value),
             (tr("Shuffle"), VideoTransitionMode.shuffle.value),
@@ -883,18 +901,13 @@ with middle_panel:
     with st.container(border=True):
         st.write(tr("Audio Settings"))
 
-        # 添加TTS服务器选择下拉框
+        # 娣诲姞TTS鏈嶅姟鍣ㄩ€夋嫨涓嬫媺妗?
         tts_servers = [
-            (voice.NO_VOICE_NAME, tr("No Voice")),
-            ("azure-tts-v1", "Azure TTS V1"),
-            ("azure-tts-v2", "Azure TTS V2"),
-            ("siliconflow", "SiliconFlow TTS"),
-            ("gemini-tts", "Google Gemini TTS"),
-            ("mimo-tts", "Xiaomi MiMo TTS"),
+            ("voxcpm-tts", "VoxCPM 声音克隆"),
         ]
 
-        # 获取保存的TTS服务器，默认为v1
-        saved_tts_server = config.ui.get("tts_server", "azure-tts-v1")
+        # 鑾峰彇淇濆瓨鐨凾TS鏈嶅姟鍣紝榛樿涓簐1
+        saved_tts_server = config.ui.get("tts_server", "voxcpm-tts")
         saved_tts_server_index = 0
         for i, (server_value, _) in enumerate(tts_servers):
             if server_value == saved_tts_server:
@@ -911,197 +924,38 @@ with middle_panel:
         selected_tts_server = tts_servers[selected_tts_server_index][0]
         config.ui["tts_server"] = selected_tts_server
 
-        # 根据选择的TTS服务器获取声音列表
-        filtered_voices = []
+        friendly_names = {
+            voice_name: voice.get_voxcpm_voice_label(voice_name)
+            for voice_name in voice.get_voxcpm_voices()
+        }
+        saved_voice_name = config.ui.get("voice_name", voice.VOXCPM_VOICE_NAME)
+        if saved_voice_name not in friendly_names:
+            saved_voice_name = voice.VOXCPM_VOICE_NAME
+        voice_options = list(friendly_names.keys())
+        selected_voice_index = st.selectbox(
+            tr("Speech Synthesis"),
+            options=range(len(voice_options)),
+            index=voice_options.index(saved_voice_name),
+            format_func=lambda x: friendly_names[voice_options[x]],
+        )
+        voice_name = voice_options[selected_voice_index]
+        params.voice_name = voice_name
+        config.ui["voice_name"] = voice_name
 
-        if selected_tts_server == voice.NO_VOICE_NAME:
-            # 无配音是显式模式，只提供一个稳定 sentinel。这样普通 TTS 的空配置
-            # 不会被误判为静音，后端也能继续通过同一条音频/字幕流程生成视频。
-            filtered_voices = [voice.NO_VOICE_NAME]
-        elif selected_tts_server == "siliconflow":
-            # 获取硅基流动的声音列表
-            filtered_voices = voice.get_siliconflow_voices()
-        elif selected_tts_server == "gemini-tts":
-            # 获取Gemini TTS的声音列表
-            filtered_voices = voice.get_gemini_voices()
-        elif selected_tts_server == "mimo-tts":
-            # 获取 Xiaomi MiMo TTS 的预置音色列表
-            filtered_voices = voice.get_mimo_voices()
+        uploaded_voice_reference_file = st.file_uploader(
+            "声音克隆参考音频",
+            type=custom_audio_file_types
+            + [file_type.upper() for file_type in custom_audio_file_types],
+            accept_multiple_files=False,
+            key="voxcpm_reference_audio_uploader",
+            help="这里上传的是克隆参考音频，不会替代最终旁白。",
+        )
+        if uploaded_voice_reference_file:
+            st.audio(uploaded_voice_reference_file, format="audio/mp3")
+        if voice_name == voice.VOXCPM_VOICE_NAME:
+            st.caption("VoxCPM 已作为内置语音克隆引擎使用。上传参考音频后会按该音色克隆，不依赖本地网址服务。")
         else:
-            # 获取Azure的声音列表
-            all_voices = voice.get_all_azure_voices(filter_locals=None)
-
-            # 根据选择的TTS服务器筛选声音
-            for v in all_voices:
-                if selected_tts_server == "azure-tts-v2":
-                    # V2版本的声音名称中包含"v2"
-                    if "V2" in v:
-                        filtered_voices.append(v)
-                else:
-                    # V1版本的声音名称中不包含"v2"
-                    if "V2" not in v:
-                        filtered_voices.append(v)
-
-        if selected_tts_server == voice.NO_VOICE_NAME:
-            friendly_names = {voice.NO_VOICE_NAME: tr("No Voice")}
-        else:
-            friendly_names = {
-                v: v.replace("Female", tr("Female"))
-                .replace("Male", tr("Male"))
-                .replace("Neural", "")
-                for v in filtered_voices
-            }
-
-        saved_voice_name = config.ui.get("voice_name", "")
-        saved_voice_name_index = 0
-
-        # 检查保存的声音是否在当前筛选的声音列表中
-        if saved_voice_name in friendly_names:
-            saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
-        else:
-            # 如果不在，则根据当前UI语言选择一个默认声音
-            for i, v in enumerate(filtered_voices):
-                if v.lower().startswith(st.session_state["ui_language"].lower()):
-                    saved_voice_name_index = i
-                    break
-
-        # 如果没有找到匹配的声音，使用第一个声音
-        if saved_voice_name_index >= len(friendly_names) and friendly_names:
-            saved_voice_name_index = 0
-
-        # 确保有声音可选
-        if friendly_names:
-            selected_friendly_name = st.selectbox(
-                tr("Speech Synthesis"),
-                options=list(friendly_names.values()),
-                index=min(saved_voice_name_index, len(friendly_names) - 1)
-                if friendly_names
-                else 0,
-            )
-
-            voice_name = list(friendly_names.keys())[
-                list(friendly_names.values()).index(selected_friendly_name)
-            ]
-            params.voice_name = voice_name
-            config.ui["voice_name"] = voice_name
-        else:
-            # 如果没有声音可选，显示提示信息
-            st.warning(
-                tr(
-                    "No voices available for the selected TTS server. Please select another server."
-                )
-            )
-            params.voice_name = ""
-            config.ui["voice_name"] = ""
-
-        # 无配音模式会生成静音占位音频，不展示试听按钮，避免用户误以为需要测试声音。
-        if (
-            friendly_names
-            and selected_tts_server != voice.NO_VOICE_NAME
-            and st.button(tr("Play Voice"))
-        ):
-            play_content = params.video_subject
-            if not play_content:
-                play_content = params.video_script
-            if not play_content:
-                play_content = tr("Voice Example")
-            with st.spinner(tr("Synthesizing Voice")):
-                temp_dir = utils.storage_dir("temp", create=True)
-                audio_file = os.path.join(temp_dir, f"tmp-voice-{str(uuid4())}.mp3")
-                sub_maker = voice.tts(
-                    text=play_content,
-                    voice_name=voice_name,
-                    voice_rate=params.voice_rate,
-                    voice_file=audio_file,
-                    voice_volume=params.voice_volume,
-                )
-                # if the voice file generation failed, try again with a default content.
-                if not sub_maker:
-                    play_content = "This is a example voice. if you hear this, the voice synthesis failed with the original content."
-                    sub_maker = voice.tts(
-                        text=play_content,
-                        voice_name=voice_name,
-                        voice_rate=params.voice_rate,
-                        voice_file=audio_file,
-                        voice_volume=params.voice_volume,
-                    )
-
-                if sub_maker and os.path.exists(audio_file):
-                    st.audio(audio_file, format="audio/mp3")
-                    if os.path.exists(audio_file):
-                        os.remove(audio_file)
-
-        # 当选择V2版本或者声音是V2声音时，显示服务区域和API key输入框
-        if selected_tts_server == "azure-tts-v2" or (
-            voice_name and voice.is_azure_v2_voice(voice_name)
-        ):
-            saved_azure_speech_region = config.azure.get("speech_region", "")
-            saved_azure_speech_key = config.azure.get("speech_key", "")
-            azure_speech_region = st.text_input(
-                tr("Speech Region"),
-                value=saved_azure_speech_region,
-                key="azure_speech_region_input",
-            )
-            azure_speech_key = st.text_input(
-                tr("Speech Key"),
-                value=saved_azure_speech_key,
-                type="password",
-                key="azure_speech_key_input",
-            )
-            config.azure["speech_region"] = azure_speech_region
-            config.azure["speech_key"] = azure_speech_key
-
-        # 当选择硅基流动时，显示API key输入框和说明信息
-        if selected_tts_server == "siliconflow" or (
-            voice_name and voice.is_siliconflow_voice(voice_name)
-        ):
-            saved_siliconflow_api_key = config.siliconflow.get("api_key", "")
-
-            siliconflow_api_key = st.text_input(
-                tr("SiliconFlow API Key"),
-                value=saved_siliconflow_api_key,
-                type="password",
-                key="siliconflow_api_key_input",
-            )
-
-            # 显示硅基流动的说明信息
-            st.info(
-                tr("SiliconFlow TTS Settings")
-                + ":\n"
-                + "- "
-                + tr("Speed: Range [0.25, 4.0], default is 1.0")
-                + "\n"
-                + "- "
-                + tr("Volume: Uses Speech Volume setting, default 1.0 maps to gain 0")
-            )
-
-            config.siliconflow["api_key"] = siliconflow_api_key
-
-        # 当选择 Xiaomi MiMo TTS 时，复用 MiMo LLM provider 的 API Key。
-        # 这样用户如果同时使用 MiMo 生成文案和语音，只需要维护一份密钥。
-        if selected_tts_server == "mimo-tts" or (
-            voice_name and voice.is_mimo_voice(voice_name)
-        ):
-            saved_mimo_api_key = config.app.get("mimo_api_key", "")
-
-            mimo_api_key = st.text_input(
-                tr("MiMo API Key"),
-                value=saved_mimo_api_key,
-                type="password",
-                key="mimo_tts_api_key_input",
-            )
-
-            st.info(
-                tr("MiMo TTS Settings")
-                + ":\n"
-                + "- "
-                + tr("Uses Xiaomi MiMo V2.5 TTS preset voices")
-                + "\n"
-                + "- "
-                + tr("Speed and volume are currently handled by the provider defaults")
-            )
-
-            config.app["mimo_api_key"] = mimo_api_key
+            st.caption("VoxCPM 已作为内置语音克隆引擎使用。当前音色会通过内置风格指令生成，也可以上传参考音频进一步克隆。")
 
         params.voice_volume = st.selectbox(
             tr("Speech Volume"),
@@ -1115,7 +969,6 @@ with middle_panel:
             index=2,
         )
 
-        custom_audio_file_types = ["mp3", "wav", "m4a", "aac", "flac", "ogg"]
         uploaded_audio_file = st.file_uploader(
             tr("Custom Audio File"),
             type=custom_audio_file_types
@@ -1155,11 +1008,11 @@ with middle_panel:
                 tr("Custom Background Music File"), key="custom_bgm_file_input"
             )
             if custom_bgm_file:
-                # 这里不直接用 os.path.exists 判断，因为用户常见输入是
-                # output000.mp3，这个文件名需要由服务层映射到 resource/songs
-                # 目录后再校验。服务层会统一限制目录和文件类型，避免任意路径读取。
+                # 杩欓噷涓嶇洿鎺ョ敤 os.path.exists 鍒ゆ柇锛屽洜涓虹敤鎴峰父瑙佽緭鍏ユ槸
+                # output000.mp3锛岃繖涓枃浠跺悕闇€瑕佺敱鏈嶅姟灞傛槧灏勫埌 resource/songs
+                # 鐩綍鍚庡啀鏍￠獙銆傛湇鍔″眰浼氱粺涓€闄愬埗鐩綍鍜屾枃浠剁被鍨嬶紝閬垮厤浠绘剰璺緞璇诲彇銆?
                 params.bgm_file = custom_bgm_file.strip()
-                # st.write(f":red[已选择自定义背景音乐]：**{custom_bgm_file}**")
+                # st.write(f":red[宸查€夋嫨鑷畾涔夎儗鏅煶涔怾锛?*{custom_bgm_file}**")
         params.bgm_volume = st.selectbox(
             tr("Background Music Volume"),
             options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
@@ -1186,8 +1039,8 @@ with right_panel:
             (tr("Bottom"), "bottom"),
             (tr("Custom"), "custom"),
         ]
-        saved_subtitle_position = config.ui.get("subtitle_position", "bottom")
-        saved_position_index = 2
+        saved_subtitle_position = config.ui.get("subtitle_position", "custom")
+        saved_position_index = 3
         for i, (_, pos_value) in enumerate(subtitle_positions):
             if pos_value == saved_subtitle_position:
                 saved_position_index = i
@@ -1202,7 +1055,7 @@ with right_panel:
         config.ui["subtitle_position"] = params.subtitle_position
 
         if params.subtitle_position == "custom":
-            saved_custom_position = config.ui.get("custom_position", 70.0)
+            saved_custom_position = config.ui.get("custom_position", 75.0)
             custom_position = st.text_input(
                 tr("Custom Position (% from top)"),
                 value=str(saved_custom_position),
@@ -1262,8 +1115,8 @@ with right_panel:
         saved_rounded_subtitle_background = config.ui.get(
             "rounded_subtitle_background", False
         )
-        # 背景关闭时，圆角背景没有可渲染的底色。这里禁用控件并保留原配置，
-        # 用户下次重新开启字幕背景后，可以继续使用之前保存的圆角偏好。
+        # 鑳屾櫙鍏抽棴鏃讹紝鍦嗚鑳屾櫙娌℃湁鍙覆鏌撶殑搴曡壊銆傝繖閲岀鐢ㄦ帶浠跺苟淇濈暀鍘熼厤缃紝
+        # 鐢ㄦ埛涓嬫閲嶆柊寮€鍚瓧骞曡儗鏅悗锛屽彲浠ョ户缁娇鐢ㄤ箣鍓嶄繚瀛樼殑鍦嗚鍋忓ソ銆?
         params.rounded_subtitle_background = st.checkbox(
             tr("Rounded Subtitle Background"),
             value=(
@@ -1296,7 +1149,7 @@ with right_panel:
             if st.button(tr("Add Pexels API Key")):
                 if new_key and new_key not in config.app["pexels_api_keys"]:
                     config.app["pexels_api_keys"].append(new_key)
-                    config.save_config()
+                    save_config_if_changed(force=True)
                     st.success(tr("Pexels API Key added successfully"))
                 elif new_key in config.app["pexels_api_keys"]:
                     st.warning(tr("This API Key already exists"))
@@ -1309,7 +1162,7 @@ with right_panel:
                 )
                 if st.button(tr("Delete Selected Pexels API Key")):
                     config.app["pexels_api_keys"].remove(delete_key)
-                    config.save_config()
+                    save_config_if_changed(force=True)
                     st.success(tr("Pexels API Key deleted successfully"))
 
         with col2:
@@ -1326,7 +1179,7 @@ with right_panel:
             if st.button(tr("Add Pixabay API Key")):
                 if new_key and new_key not in config.app["pixabay_api_keys"]:
                     config.app["pixabay_api_keys"].append(new_key)
-                    config.save_config()
+                    save_config_if_changed(force=True)
                     st.success(tr("Pixabay API Key added successfully"))
                 elif new_key in config.app["pixabay_api_keys"]:
                     st.warning(tr("This API Key already exists"))
@@ -1339,37 +1192,47 @@ with right_panel:
                 )
                 if st.button(tr("Delete Selected Pixabay API Key")):
                     config.app["pixabay_api_keys"].remove(delete_key)
-                    config.save_config()
+                    save_config_if_changed(force=True)
                     st.success(tr("Pixabay API Key deleted successfully"))
 
-start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
+start_button = st.button(
+    tr("Generate Video"),
+    use_container_width=True,
+    type="primary",
+    disabled=st.session_state["generation_in_progress"],
+)
 if start_button:
-    config.save_config()
+    st.session_state["generation_in_progress"] = True
+    save_config_if_changed(force=True)
     task_id = str(uuid4())
     if not params.video_subject and not params.video_script:
         st.error(tr("Video Script and Subject Cannot Both Be Empty"))
+        st.session_state["generation_in_progress"] = False
         scroll_to_bottom()
         st.stop()
 
     if params.video_source not in ["pexels", "pixabay", "local"]:
         st.error(tr("Please Select a Valid Video Source"))
+        st.session_state["generation_in_progress"] = False
         scroll_to_bottom()
         st.stop()
 
     if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
         st.error(tr("Please Enter the Pexels API Key"))
+        st.session_state["generation_in_progress"] = False
         scroll_to_bottom()
         st.stop()
 
     if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
         st.error(tr("Please Enter the Pixabay API Key"))
+        st.session_state["generation_in_progress"] = False
         scroll_to_bottom()
         st.stop()
 
     if uploaded_audio_file:
         task_dir = utils.task_dir(task_id)
-        # 上传文件名来自浏览器，不能直接拼到磁盘路径里；这里只保留扩展名，
-        # 并使用固定文件名保存到当前任务目录，避免路径穿越或特殊字符问题。
+        # 涓婁紶鏂囦欢鍚嶆潵鑷祻瑙堝櫒锛屼笉鑳界洿鎺ユ嫾鍒扮鐩樿矾寰勯噷锛涜繖閲屽彧淇濈暀鎵╁睍鍚嶏紝
+        # 骞朵娇鐢ㄥ浐瀹氭枃浠跺悕淇濆瓨鍒板綋鍓嶄换鍔＄洰褰曪紝閬垮厤璺緞绌胯秺鎴栫壒娈婂瓧绗﹂棶棰樸€?
         _, audio_ext = os.path.splitext(os.path.basename(uploaded_audio_file.name))
         audio_ext = audio_ext.lower() or ".mp3"
         custom_audio_path = os.path.join(task_dir, f"custom-audio{audio_ext}")
@@ -1377,9 +1240,20 @@ if start_button:
             f.write(uploaded_audio_file.getbuffer())
         params.custom_audio_file = custom_audio_path
 
+    if uploaded_voice_reference_file:
+        task_dir = utils.task_dir(task_id)
+        _, audio_ext = os.path.splitext(
+            os.path.basename(uploaded_voice_reference_file.name)
+        )
+        audio_ext = audio_ext.lower() or ".wav"
+        reference_audio_path = os.path.join(task_dir, f"voice-reference{audio_ext}")
+        with open(reference_audio_path, "wb") as f:
+            f.write(uploaded_voice_reference_file.getbuffer())
+        params.voice_reference_audio_file = reference_audio_path
+
     if uploaded_files:
         local_videos_dir = utils.storage_dir("local_videos", create=True)
-        # 每次重新上传时都以本次选择的素材为准，避免旧素材不断重复追加。
+        # 姣忔閲嶆柊涓婁紶鏃堕兘浠ユ湰娆￠€夋嫨鐨勭礌鏉愪负鍑嗭紝閬垮厤鏃х礌鏉愪笉鏂噸澶嶈拷鍔犮€?
         params.video_materials = []
         persisted_local_materials = []
         for file in uploaded_files:
@@ -1397,10 +1271,10 @@ if start_button:
                         "duration": m.duration,
                     }
                 )
-        # 将已上传并保存到本地的视频素材写入会话，供后续只改文案时直接复用。
+        # 灏嗗凡涓婁紶骞朵繚瀛樺埌鏈湴鐨勮棰戠礌鏉愬啓鍏ヤ細璇濓紝渚涘悗缁彧鏀规枃妗堟椂鐩存帴澶嶇敤銆?
         st.session_state["local_video_materials"] = persisted_local_materials
     elif params.video_source == "local" and st.session_state["local_video_materials"]:
-        # 当用户没有重新上传文件时，复用最近一次已经保存到磁盘的本地素材列表。
+        # 褰撶敤鎴锋病鏈夐噸鏂颁笂浼犳枃浠舵椂锛屽鐢ㄦ渶杩戜竴娆″凡缁忎繚瀛樺埌纾佺洏鐨勬湰鍦扮礌鏉愬垪琛ㄣ€?
         params.video_materials = []
         for material in st.session_state["local_video_materials"]:
             m = MaterialInfo()
@@ -1418,19 +1292,44 @@ if start_button:
             return
         with log_container:
             log_records.append(msg)
-            st.code("\n".join(log_records))
+            st.caption("鐢熸垚杩涘害")
+            st.code("\n".join(log_records[-6:]))
+            with st.expander("瀹屾暣鏃ュ織", expanded=False):
+                st.code("\n".join(log_records[-400:]))
 
-    logger.add(log_received)
+    log_handler_id = logger.add(log_received)
 
     st.toast(tr("Generating Video"))
     logger.info(tr("Start Generating Video"))
-    logger.info(utils.to_json(params))
+    logger.info(
+        "generation params: "
+        f"subject={params.video_subject!r}, "
+        f"aspect={params.video_aspect}, "
+        f"source={params.video_source}, "
+        f"tts={params.voice_name}, "
+        f"clip_duration={params.video_clip_duration}, "
+        f"count={params.video_count}"
+    )
     scroll_to_bottom()
 
-    result = tm.start(task_id=task_id, params=params)
+    try:
+        with st.status(tr("Generating Video"), expanded=False):
+            from app.services import task as tm
+
+            result = tm.start(task_id=task_id, params=params)
+    except Exception as e:
+        logger.exception(f"video generation crashed: {str(e)}")
+        result = None
+    finally:
+        try:
+            logger.remove(log_handler_id)
+        except Exception:
+            pass
+
     if not result or "videos" not in result:
         st.error(tr("Video Generation Failed"))
         logger.error(tr("Video Generation Failed"))
+        st.session_state["generation_in_progress"] = False
         scroll_to_bottom()
         st.stop()
 
@@ -1446,6 +1345,7 @@ if start_button:
 
     open_task_folder(task_id)
     logger.info(tr("Video Generation Completed"))
+    st.session_state["generation_in_progress"] = False
     scroll_to_bottom()
 
-config.save_config()
+save_config_if_changed()

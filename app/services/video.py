@@ -66,7 +66,7 @@ audio_codec = "aac"
 # Docker 里的 ffmpeg/AAC 组合在默认配置下更容易出现音频质量波动，
 # 这里显式抬高音频码率，避免成片阶段因为默认值过低而引入明显失真。
 audio_bitrate = "192k"
-fps = 30
+fps = 24
 _BGM_EXTENSIONS = (".mp3",)
 _DEFAULT_VIDEO_CODEC = "libx264"
 _SUPPORTED_VIDEO_CODECS = (
@@ -78,6 +78,12 @@ _SUPPORTED_VIDEO_CODECS = (
     "h264_videotoolbox",
 )
 _runtime_disabled_video_codecs = set()
+
+
+def _video_encoder_kwargs(codec: str) -> dict:
+    if codec == "libx264":
+        return {"preset": config.app.get("video_encode_preset", "veryfast")}
+    return {}
 
 
 def _prioritize_unique_source_clips(
@@ -167,6 +173,8 @@ def _ffmpeg_encoder_exists(ffmpeg_binary: str, codec: str) -> bool:
             [ffmpeg_binary, "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=10,
         )
@@ -233,7 +241,8 @@ def _fallback_write_videofile(clip, output_file: str, failed_codec: str, reason:
     文件被占用、目录权限、杀软拦截等通用 IO 问题。只有 libx264 能成功写出时，
     才能判断原始失败大概率来自硬件编码器本身，避免误伤后续任务。
     """
-    clip.write_videofile(output_file, codec=_DEFAULT_VIDEO_CODEC, **kwargs)
+    fallback_kwargs = {**kwargs, **_video_encoder_kwargs(_DEFAULT_VIDEO_CODEC)}
+    clip.write_videofile(output_file, codec=_DEFAULT_VIDEO_CODEC, **fallback_kwargs)
     _disable_runtime_video_codec(failed_codec, reason)
     return _DEFAULT_VIDEO_CODEC
 
@@ -247,7 +256,8 @@ def _write_videofile_with_codec_fallback(clip, output_file: str, codec: str, **k
     """
     effective_codec = _get_effective_video_codec(codec)
     try:
-        clip.write_videofile(output_file, codec=effective_codec, **kwargs)
+        write_kwargs = {**kwargs, **_video_encoder_kwargs(effective_codec)}
+        clip.write_videofile(output_file, codec=effective_codec, **write_kwargs)
         return effective_codec
     except Exception as exc:
         if effective_codec == _DEFAULT_VIDEO_CODEC:
@@ -298,6 +308,11 @@ def concat_video_clips_with_ffmpeg(
             concat_list_file,
             "-c:v",
             codec,
+            *(
+                ["-preset", str(config.app.get("video_encode_preset", "veryfast"))]
+                if codec == "libx264"
+                else []
+            ),
             "-threads",
             str(threads or 2),
             "-pix_fmt",
@@ -313,6 +328,8 @@ def concat_video_clips_with_ffmpeg(
             command,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
         )
         if result.returncode != 0:
@@ -916,7 +933,7 @@ def generate_video(
         _clip = _clip.with_end(subtitle_item[0][1])
         _clip = _clip.with_duration(duration)
         if params.subtitle_position == "bottom":
-            _clip = _clip.with_position(("center", video_height * 0.95 - _clip.h))
+            _clip = _clip.with_position(("center", video_height * 0.75 - _clip.h))
         elif params.subtitle_position == "top":
             _clip = _clip.with_position(("center", video_height * 0.05))
         elif params.subtitle_position == "custom":

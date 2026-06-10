@@ -67,7 +67,7 @@ class TestTaskService(unittest.TestCase):
             video_source="local",
             video_materials=video_materials,
             video_language="",
-            voice_name="zh-CN-XiaoxiaoNeural-Female",
+            voice_name="no-voice",
             voice_volume=1.0,
             voice_rate=1.0,
             bgm_type="random",
