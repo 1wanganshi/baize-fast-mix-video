@@ -1,37 +1,37 @@
-project_name = "白泽快速混剪视频"
-project_description = "白泽快速混剪视频桌面工具"
+﻿project_name = "白泽混剪"
+project_description = "白泽混剪桌面工具"
 
 [app]
 video_source = "pexels" # "pexels" or "pixabay"
 
-# 是否隐藏配置面板
+# 鏄惁闅愯棌閰嶇疆闈㈡澘
 hide_config = false
 
-# 是否校验外部 API 和素材下载的 TLS 证书。
-# 默认必须开启，避免 Pexels/Pixabay API key 和下载素材被中间人攻击篡改。
-# 只有在企业代理或自签证书环境明确需要时，才临时改为 false。
+# 鏄惁鏍￠獙澶栭儴 API 鍜岀礌鏉愪笅杞界殑 TLS 璇佷功銆?
+# 榛樿蹇呴』寮€鍚紝閬垮厤 Pexels/Pixabay API key 鍜屼笅杞界礌鏉愯涓棿浜烘敾鍑荤鏀广€?
+# 鍙湁鍦ㄤ紒涓氫唬鐞嗘垨鑷璇佷功鐜鏄庣‘闇€瑕佹椂锛屾墠涓存椂鏀逛负 false銆?
 tls_verify = true
 
 # Pexels API Key
 # Register at https://www.pexels.com/api/ to get your API key.
 # You can use multiple keys to avoid rate limits.
 # For example: pexels_api_keys = ["123adsf4567adf89","abd1321cd13efgfdfhi"]
-# 特别注意格式，Key 用英文双引号括起来，多个Key用逗号隔开
+# 鐗瑰埆娉ㄦ剰鏍煎紡锛孠ey 鐢ㄨ嫳鏂囧弻寮曞彿鎷捣鏉ワ紝澶氫釜Key鐢ㄩ€楀彿闅斿紑
 pexels_api_keys = []
 
 # Pixabay API Key
 # Register at https://pixabay.com/api/docs/ to get your API key.
 # You can use multiple keys to avoid rate limits.
 # For example: pixabay_api_keys = ["123adsf4567adf89","abd1321cd13efgfdfhi"]
-# 特别注意格式，Key 用英文双引号括起来，多个Key用逗号隔开
+# 鐗瑰埆娉ㄦ剰鏍煎紡锛孠ey 鐢ㄨ嫳鏂囧弻寮曞彿鎷捣鏉ワ紝澶氫釜Key鐢ㄩ€楀彿闅斿紑
 pixabay_api_keys = []
 
-# 支持的提供商 (Supported providers):
+# 鏀寔鐨勬彁渚涘晢 (Supported providers):
 #   openai
 #   aihubmix   (OpenAI-compatible AI model gateway)
-#   moonshot    (月之暗面)
+#   moonshot    (鏈堜箣鏆楅潰)
 #   azure
-#   qwen        (通义千问)
+#   qwen        (閫氫箟鍗冮棶)
 #   deepseek
 #   gemini
 #   ollama
@@ -40,8 +40,8 @@ pixabay_api_keys = []
 #   cloudflare
 #   minimax
 #   mimo       (Xiaomi MiMo)
-#   ernie       (文心一言)
-#   modelscope  (魔搭社区)
+#   ernie       (鏂囧績涓€瑷€)
+#   modelscope  (榄旀惌绀惧尯)
 #   litellm     (100+ providers via LiteLLM gateway)
 llm_provider = "openai"
 
@@ -62,14 +62,14 @@ ollama_model_name = ""
 
 ########## OpenAI API Key
 # Get your API key at https://platform.openai.com/api-keys
-# 也可以填写兼容 OpenAI Chat Completions 协议的供应商密钥，
-# 例如 OpenRouter 这类提供自定义 base_url 的平台。
+# 涔熷彲浠ュ～鍐欏吋瀹?OpenAI Chat Completions 鍗忚鐨勪緵搴斿晢瀵嗛挜锛?
+# 渚嬪 OpenRouter 杩欑被鎻愪緵鑷畾涔?base_url 鐨勫钩鍙般€?
 openai_api_key = ""
 # No need to set it unless you want to use your own proxy
-# 如果使用兼容 OpenAI 接口的平台，请在这里填写对应的 base_url。
+# 濡傛灉浣跨敤鍏煎 OpenAI 鎺ュ彛鐨勫钩鍙帮紝璇峰湪杩欓噷濉啓瀵瑰簲鐨?base_url銆?
 openai_base_url = ""
 # Check your available models at https://platform.openai.com/account/limits
-# 如果使用兼容供应商，请填写该平台要求的模型 ID。
+# 濡傛灉浣跨敤鍏煎渚涘簲鍟嗭紝璇峰～鍐欒骞冲彴瑕佹眰鐨勬ā鍨?ID銆?
 openai_model_name = "gpt-4o-mini"
 
 ########## AIHubMix API Key
@@ -165,7 +165,7 @@ modelscope_api_key = ""
 modelscope_base_url = "https://api-inference.modelscope.cn/v1/"
 modelscope_model_name = "Qwen/Qwen3-32B"
 
-########## LiteLLM (AI Gateway — 100+ providers)
+########## LiteLLM (AI Gateway 鈥?100+ providers)
 # LiteLLM routes to any LLM provider via a unified interface.
 # Use this for providers not directly supported above: Anthropic (native API),
 # AWS Bedrock, Google Vertex AI, Cohere, Mistral, Together AI, etc.
@@ -198,11 +198,11 @@ subtitle_provider = "edge"
 #
 # FFMPEG
 #
-# 通常情况下，ffmpeg 会被自动下载，并且会被自动检测到。
-# 但是如果你的环境有问题，无法自动下载，可能会遇到如下错误：
+# 閫氬父鎯呭喌涓嬶紝ffmpeg 浼氳鑷姩涓嬭浇锛屽苟涓斾細琚嚜鍔ㄦ娴嬪埌銆?
+# 浣嗘槸濡傛灉浣犵殑鐜鏈夐棶棰橈紝鏃犳硶鑷姩涓嬭浇锛屽彲鑳戒細閬囧埌濡備笅閿欒锛?
 #   RuntimeError: No ffmpeg exe could be found.
 #   Install ffmpeg on your system, or set the IMAGEIO_FFMPEG_EXE environment variable.
-# 此时你可以手动下载 ffmpeg 并设置 ffmpeg_path，下载地址：https://www.gyan.dev/ffmpeg/builds/
+# 姝ゆ椂浣犲彲浠ユ墜鍔ㄤ笅杞?ffmpeg 骞惰缃?ffmpeg_path锛屼笅杞藉湴鍧€锛歨ttps://www.gyan.dev/ffmpeg/builds/
 
 # Under normal circumstances, ffmpeg is downloaded automatically and detected automatically.
 # However, if there is an issue with your environment that prevents automatic downloading, you might encounter the following error:
@@ -212,9 +212,9 @@ subtitle_provider = "edge"
 
 # ffmpeg_path = "C:\\Users\\harry\\Downloads\\ffmpeg.exe"
 
-# 视频编码器。默认 libx264 最稳定；高级用户可以尝试硬件编码器提升速度。
-# 如果当前 FFmpeg 或硬件驱动不支持所选编码器，程序会自动回退到 libx264。
-# 可选值: "libx264", "h264_nvenc", "h264_amf", "h264_qsv", "h264_mf", "h264_videotoolbox"
+# 瑙嗛缂栫爜鍣ㄣ€傞粯璁?libx264 鏈€绋冲畾锛涢珮绾х敤鎴峰彲浠ュ皾璇曠‖浠剁紪鐮佸櫒鎻愬崌閫熷害銆?
+# 濡傛灉褰撳墠 FFmpeg 鎴栫‖浠堕┍鍔ㄤ笉鏀寔鎵€閫夌紪鐮佸櫒锛岀▼搴忎細鑷姩鍥為€€鍒?libx264銆?
+# 鍙€夊€? "libx264", "h264_nvenc", "h264_amf", "h264_qsv", "h264_mf", "h264_videotoolbox"
 # video_codec = "libx264"
 
 # Video encoder. libx264 is the safest default; advanced users can try hardware encoders.
@@ -222,21 +222,18 @@ subtitle_provider = "edge"
 # Available values: "libx264", "h264_nvenc", "h264_amf", "h264_qsv", "h264_mf", "h264_videotoolbox"
 # video_codec = "libx264"
 
-# CPU 编码速度预设。默认 veryfast 会明显快于默认 preset，体积略大但更适合桌面端快速成片。
-video_encode_preset = "veryfast"
+# CPU 缂栫爜閫熷害棰勮銆傞粯璁?veryfast 浼氭槑鏄惧揩浜庨粯璁?preset锛屼綋绉暐澶т絾鏇撮€傚悎妗岄潰绔揩閫熸垚鐗囥€?video_encode_preset = "veryfast"
 
-# 快速素材模式：Pexels 优先选择 720p 级别素材，减少下载和重编码耗时。
-fast_video_materials = true
+# 蹇€熺礌鏉愭ā寮忥細Pexels 浼樺厛閫夋嫨 720p 绾у埆绱犳潗锛屽噺灏戜笅杞藉拰閲嶇紪鐮佽€楁椂銆?fast_video_materials = true
 material_preferred_short_side = 720
 material_search_per_page = 12
 
-# OpenBMB VoxCPM 声音克隆由桌面端内置 Python 包直接加载，不依赖本地网址服务。
-#########################################################################################
+# OpenBMB VoxCPM 澹伴煶鍏嬮殕鐢辨闈㈢鍐呯疆 Python 鍖呯洿鎺ュ姞杞斤紝涓嶄緷璧栨湰鍦扮綉鍧€鏈嶅姟銆?#########################################################################################
 
-# 当视频生成成功后，API服务提供的视频下载接入点，默认为当前服务的地址和监听端口
-# 比如 http://127.0.0.1:8080/tasks/6357f542-a4e1-46a1-b4c9-bf3bd0df5285/final-1.mp4
-# 如果你需要使用域名对外提供服务（一般会用nginx做代理），则可以设置为你的域名
-# 比如 https://xxxx.com/tasks/6357f542-a4e1-46a1-b4c9-bf3bd0df5285/final-1.mp4
+# 褰撹棰戠敓鎴愭垚鍔熷悗锛孉PI鏈嶅姟鎻愪緵鐨勮棰戜笅杞芥帴鍏ョ偣锛岄粯璁や负褰撳墠鏈嶅姟鐨勫湴鍧€鍜岀洃鍚鍙?
+# 姣斿 http://127.0.0.1:8080/tasks/6357f542-a4e1-46a1-b4c9-bf3bd0df5285/final-1.mp4
+# 濡傛灉浣犻渶瑕佷娇鐢ㄥ煙鍚嶅澶栨彁渚涙湇鍔★紙涓€鑸細鐢╪ginx鍋氫唬鐞嗭級锛屽垯鍙互璁剧疆涓轰綘鐨勫煙鍚?
+# 姣斿 https://xxxx.com/tasks/6357f542-a4e1-46a1-b4c9-bf3bd0df5285/final-1.mp4
 # endpoint="https://xxxx.com"
 
 # When the video is successfully generated, the API service provides a download endpoint for the video, defaulting to the service's current address and listening port.
@@ -252,10 +249,10 @@ endpoint = ""
 # material_directory = "/user/harry/videos"  # Indicates that video materials will be downloaded to a specified folder
 # material_directory = "task"                # Indicates that video materials will be downloaded to the current task's folder, this method does not allow sharing of already downloaded video materials
 
-# 视频素材存放位置
-# material_directory = ""                    #表示将视频素材下载到默认的文件夹，默认文件夹为当前项目下的 ./storage/cache_videos
-# material_directory = "/user/harry/videos"  #表示将视频素材下载到指定的文件夹中
-# material_directory = "task"                #表示将视频素材下载到当前任务的文件夹中，这种方式无法共享已经下载的视频素材
+# 瑙嗛绱犳潗瀛樻斁浣嶇疆
+# material_directory = ""                    #琛ㄧず灏嗚棰戠礌鏉愪笅杞藉埌榛樿鐨勬枃浠跺す锛岄粯璁ゆ枃浠跺す涓哄綋鍓嶉」鐩笅鐨?./storage/cache_videos
+# material_directory = "/user/harry/videos"  #琛ㄧず灏嗚棰戠礌鏉愪笅杞藉埌鎸囧畾鐨勬枃浠跺す涓?
+# material_directory = "task"                #琛ㄧず灏嗚棰戠礌鏉愪笅杞藉埌褰撳墠浠诲姟鐨勬枃浠跺す涓紝杩欑鏂瑰紡鏃犳硶鍏变韩宸茬粡涓嬭浇鐨勮棰戠礌鏉?
 
 material_directory = ""
 
@@ -266,10 +263,10 @@ redis_port = 6379
 redis_db = 0
 redis_password = ""
 
-# 文生视频时的最大并发任务数
+# 鏂囩敓瑙嗛鏃剁殑鏈€澶у苟鍙戜换鍔℃暟
 max_concurrent_tasks = 5
 
-# 并发任务已满后的最大排队任务数，超过后接口返回 429，避免匿名请求无限堆积
+# 骞跺彂浠诲姟宸叉弧鍚庣殑鏈€澶ф帓闃熶换鍔℃暟锛岃秴杩囧悗鎺ュ彛杩斿洖 429锛岄伩鍏嶅尶鍚嶈姹傛棤闄愬爢绉?
 max_queued_tasks = 100
 
 
@@ -303,14 +300,14 @@ compute_type = "int8"
 
 [ui]
 # UI related settings
-# 是否隐藏日志信息
+# 鏄惁闅愯棌鏃ュ織淇℃伅
 # Whether to hide logs in the UI
 hide_log = false
 
-# 字幕位置设置 (Subtitle position settings)
-# 可选值 (Available values): "top", "center", "bottom", "custom"
+# 瀛楀箷浣嶇疆璁剧疆 (Subtitle position settings)
+# 鍙€夊€?(Available values): "top", "center", "bottom", "custom"
 # subtitle_position = "custom"
-# 自定义位置，表示离顶部的百分比 (0-100)，仅当 subtitle_position = "custom" 时生效
+# 鑷畾涔変綅缃紝琛ㄧず绂婚《閮ㄧ殑鐧惧垎姣?(0-100)锛屼粎褰?subtitle_position = "custom" 鏃剁敓鏁?
 # Custom position as percentage from top (0-100), only effective when subtitle_position = "custom"
 custom_position = 75.0
 

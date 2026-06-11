@@ -44,7 +44,7 @@ def save_config_if_changed(force: bool = False):
 
 
 st.set_page_config(
-    page_title="白泽快速混剪视频",
+    page_title="白泽混剪",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="auto",
@@ -56,6 +56,20 @@ streamlit_style = """
 <style>
 h1 {
     padding-top: 0 !important;
+}
+
+header[data-testid="stHeader"],
+div[data-testid="stToolbar"],
+div[data-testid="stDecoration"],
+div[data-testid="stStatusWidget"],
+#MainMenu,
+footer {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.block-container {
+    padding-top: 1.2rem !important;
 }
 </style>
 """
@@ -98,7 +112,7 @@ locales = utils.load_locales(i18n_dir)
 title_col, lang_col = st.columns([3, 1])
 
 with title_col:
-    st.title(f"鐧芥辰蹇€熸贩鍓棰?v{config.project_version}")
+    st.title(f"白泽混剪 v{config.project_version}")
 
 with lang_col:
     display_languages = []
@@ -356,14 +370,14 @@ if not config.app.get("hide_config", False):
                 with llm_helper:
                     docker_hint = ""
                     if config.is_running_in_container():
-                        docker_hint = "\n                            > 妫€娴嬪埌瀹瑰櫒鐜锛屾湭閰嶇疆 Base Url 鏃朵細榛樿浣跨敤 `http://host.docker.internal:11434/v1`\n"
+                        docker_hint = "\n                            > 检测到容器环境，未配置 Base Url 时会默认使用 `http://host.docker.internal:11434/v1`\n"
                     tips = f"""
-                            ##### Ollama閰嶇疆璇存槑
-                            - **API Key**: 闅忎究濉啓锛屾瘮濡?123
-                            - **Base Url**: 涓€鑸负 http://localhost:11434/v1
-                                - 濡傛灉 `鐧芥辰蹇€熸贩鍓棰慲 鍜?`Ollama` **涓嶅湪鍚屼竴鍙版満鍣ㄤ笂**锛岄渶瑕佸～鍐?`Ollama` 鏈哄櫒鐨処P鍦板潃
-                                - 濡傛灉 `鐧芥辰蹇€熸贩鍓棰慲 鏄?`Docker` 閮ㄧ讲锛屽缓璁～鍐?`http://host.docker.internal:11434/v1`{docker_hint}
-                            - **Model Name**: 浣跨敤 `ollama list` 鏌ョ湅锛屾瘮濡?`qwen:7b`
+                            ##### Ollama 配置说明
+                            - **API Key**: 随便填写，比如 123
+                            - **Base Url**: 一般为 http://localhost:11434/v1
+                                - 如果 `白泽混剪` 和 `Ollama` 不在同一台机器上，需要填写 `Ollama` 机器的 IP 地址
+                                - 如果 `白泽混剪` 是 Docker 部署，建议填写 `http://host.docker.internal:11434/v1`{docker_hint}
+                            - **Model Name**: 使用 `ollama list` 查看，比如 `qwen:7b`
                             """
 
             if llm_provider == "openai":
@@ -535,10 +549,10 @@ if not config.app.get("hide_config", False):
             if llm_provider == "ernie":
                 with llm_helper:
                     tips = """
-                            ##### 鐧惧害鏂囧績涓€瑷€ 閰嶇疆璇存槑
-                            - **API Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
-                            - **Secret Key**: [鐐瑰嚮鍒板畼缃戠敵璇穄(https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
-                            - **Base Url**: 濉啓 **璇锋眰鍦板潃** [鐐瑰嚮鏌ョ湅鏂囨。](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/jlil56u11#%E8%AF%B7%E6%B1%82%E8%AF%B4%E6%98%8E)
+                            ##### 百度文心一言配置说明
+                            - **API Key**: [点击到官网申请](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
+                            - **Secret Key**: [点击到官网申请](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application)
+                            - **Base Url**: 填写 **请求地址** [点击查看文档](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/jlil56u11#%E8%AF%B7%E6%B1%82%E8%AF%B4%E6%98%8E)
                             """
 
             if llm_provider == "pollinations":

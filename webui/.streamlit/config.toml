@@ -1,2 +1,9 @@
-[browser]
+﻿[browser]
 gatherUsageStats = false
+
+[ui]
+hideTopBar = true
+
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false

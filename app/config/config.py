@@ -172,10 +172,10 @@ hostname = socket.gethostname()
 log_level = _cfg.get("log_level", "DEBUG")
 listen_host = _cfg.get("listen_host", "0.0.0.0")
 listen_port = _cfg.get("listen_port", 8080)
-project_name = _cfg.get("project_name", "白泽快速混剪视频")
+project_name = _cfg.get("project_name", "白泽混剪")
 project_description = _cfg.get(
     "project_description",
-    "白泽快速混剪视频桌面工具",
+    "白泽混剪桌面工具",
 )
 project_version = _cfg.get("project_version", "1.2.9")
 reload_debug = False

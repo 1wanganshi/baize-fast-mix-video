@@ -1,11 +1,11 @@
-﻿const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const net = require('net');
 
-const APP_NAME = '白泽快速混剪视频';
+const APP_NAME = '白泽混剪';
 const DEFAULT_PORT = 8501;
 const MAX_PORT_TRIES = 40;
 const STARTUP_TIMEOUT = 120_000;
@@ -99,6 +99,8 @@ async function startBackend() {
     '--server.runOnSave', 'false',
     '--browser.serverAddress', '127.0.0.1',
     '--browser.gatherUsageStats', 'false',
+    '--client.toolbarMode', 'minimal',
+    '--client.showErrorDetails', 'false',
     '--server.enableCORS', 'true',
   ];
   const cmd = pythonExe === 'uv'
@@ -242,7 +244,7 @@ app.whenReady().then(async () => {
     if (mainWindow) {
       mainWindow.loadURL(statusPage(
         'Startup failed',
-        `${err.message || err}. 请关闭窗口后重新打开白泽快速混剪视频。`,
+        `${err.message || err}. 请关闭窗口后重新打开白泽混剪。`,
         true,
       ));
     }

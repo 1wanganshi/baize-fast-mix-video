@@ -1,6 +1,6 @@
-# 白泽快速混剪视频
+# 白泽混剪
 
-白泽快速混剪视频是一款基于 [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo) 二次开发的 AI 短视频生成与桌面混剪工具。它可以根据主题或自定义文案自动生成脚本、搜索素材、生成旁白、制作字幕、添加背景音乐，并合成为适合发布的短视频。
+白泽混剪是一款基于 [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo) 二次开发的 AI 短视频生成与桌面混剪工具。它可以根据主题或自定义文案自动生成脚本、搜索素材、生成旁白、制作字幕、添加背景音乐，并合成为适合发布的短视频。
 
 当前分支重点面向本地桌面使用：保留 WebUI 与 API 能力，同时提供 Electron 桌面壳，支持打包成 Windows 可执行应用。
 

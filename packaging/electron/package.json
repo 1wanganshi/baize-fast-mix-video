@@ -1,7 +1,7 @@
 {
   "name": "baize-fast-mix-video-desktop",
   "version": "1.2.9",
-  "description": "????????????",
+  "description": "\u767d\u6cfd\u6df7\u526a\u684c\u9762\u5de5\u5177",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,7 @@
   },
   "build": {
     "appId": "com.baize.fastmixvideo.desktop",
-    "productName": "????????",
+    "productName": "\u767d\u6cfd\u6df7\u526a",
     "directories": {
       "output": "../../dist/electron"
     },
